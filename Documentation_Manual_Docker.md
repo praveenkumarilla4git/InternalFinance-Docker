@@ -184,7 +184,7 @@ variable "aws_region" {
 
 variable "key_name" {
   description = "Name of your existing EC2 Key Pair (without .pem)"
-  default     = "batch3"  # <--- REPLACE THIS F NEEDED
+  default     = "batch3"  # <--- REPLACE THIS IF NEEDED
 }
 
 2. Ops-Infra/main.tf
@@ -224,8 +224,8 @@ resource "aws_security_group" "finance_docker_sg" {
 
 # --- EC2 Instance ---
 resource "aws_instance" "finance_server" {
-  ami           = "ami-051f7e7f6c2f40dc1" # Amazon Linux 2023 (US-East-1)
-  instance_type = "t2.micro"
+  ami           = "ami-068c0051b15cdb816" # Amazon Linux 2023 (US-East-1)
+  instance_type = "t3.micro"
   key_name      = var.key_name
   security_groups = [aws_security_group.finance_docker_sg.name]
 
@@ -252,7 +252,7 @@ Make sure we include the .gitignore file properly
 Ops-Infra/.terraform/
 *.tfstate
 finance.db
-Ops-Infra\batch3.pem
+Ops-Infra/batch3.pem
 
 Now we need to do common steps:
 git init
@@ -260,4 +260,133 @@ git add .
 git branch -m main
 git add remote add origin https://github.com/praveenkumarilla4git/InternalFinance-Docker.git
 git push -u origin main
+
+Phase 4: Launch Infrastructure (Terraform Execution)
+Location: On your Laptop (VS Code Terminal)
+Now that your code is on GitHub, let's create the AWS Server that will run it.
+
+1. Open Terminal in VS Code.
+
+2. Move to the Infra folder:
+
+cd Ops-Infra
+
+3. Initialize Terraform: (Downloads the AWS plugins)
+terraform init
+terraform validate
+
+4. Create the Server:
+terraform apply -auto-approve
+
+Error: No valid credential sources found
+│
+│   with provider["registry.terraform.io/hashicorp/aws"],
+│   on main.tf line 1, in provider "aws":
+│    1: provider "aws" {
+│
+│ Please see https://registry.terraform.io/providers/hashicorp/aws
+│ for more information about providing credentials.
+│
+│ Error: failed to refresh cached credentials, no EC2 IMDS role found, operation error ec2imds: GetMetadata, exceeded maximum       
+│ number of attempts, 3, request send failed, Get "http://169.254.169.254/latest/meta-data/iam/security-credentials/": dial tcp     
+│ 169.254.169.254:80: connectex: A socket operation was attempted to an unreachable network.
+│
+
+when we run into this we need to provide aws access token 
+$Env:AWS_ACCESS_KEY_ID=
+$Env:AWS_SECRET_ACCESS_KEY=
+$Env:AWS_DEFAULT_REGION=
+
+So instead of giving these access token everytime it would be better if we provide them in the terraform.tfvars file inside the project but we should make sure it is added into .gitignore
+
+Step 1: Update variables.tf
+You need to tell Terraform that it should expect two new variables (Access Key and Secret Key). Add these lines to your existing Ops-Infra/variables.tf file:
+# Add these to Ops-Infra/variables.tf
+
+variable "aws_access_key" {
+  description = "AWS Access Key ID"
+  type        = string
+  sensitive   = true  # This hides it from logs
+}
+
+variable "aws_secret_key" {
+  description = "AWS Secret Access Key"
+  type        = string
+  sensitive   = true
+}
+
+Step 2: Update main.tf
+Now, update the provider "aws" block in Ops-Infra/main.tf to actually use those variables.
+
+Terraform
+
+# Update the provider block in Ops-Infra/main.tf
+
+provider "aws" {
+  region     = var.aws_region
+  access_key = var.aws_access_key  # <--- NEW
+  secret_key = var.aws_secret_key  # <--- NEW
+}
+
+We need to update in variables.tf
+variables.tf takes the original values from terraform.tfvars
+so in logs we will not see the exact access token values;
+
+Step 3: Create the terraform.tfvars file
+Create a new file inside your Ops-Infra folder named exactly terraform.tfvars. Paste your actual AWS keys here.
+
+# Ops-Infra/terraform.tfvars
+
+aws_access_key = "AKIA................"
+aws_secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiVYEXAMPLEKEY"
+
+Step 4: 🚨 FINAL SECURITY CHECK
+Before you do anything else, run git status in your terminal.
+
+If you see terraform.tfvars in GREEN or RED: STOP. Do not commit. Add *.tfvars to your .gitignore file immediately.
+
+If you do NOT see terraform.tfvars: You are safe! Git is ignoring the file, but Terraform can still read it locally.
+
+Make sure chmod 400 applied on batch3.pem (your ssh key)
+After updating the respective files we can do the terraform apply
+
+
+Phase 5: Deploy Application (Inside the Server)
+We are now having one ec2 instance 
+
+1. Connect to your Server Open your terminal (PowerShell or Git Bash) where your .pem key file is located and run:
+if we now login to ssh -i batch3 ec2-user@<YOUR_IP>
+
+2. Verify Installation After waiting, check if the tools are ready:
+
+docker --version
+
+3. Download Your Code Clone your repository (since we pushed the new structure to GitHub):
+
+git clone https://github.com/praveenkumarilla4git/InternalFinance-Docker.git
+cd InternalFinance-Docker
+make sure the requirements.txt is in main folder
+check if requirements.txt is moved to app/ earlier; use below command as needed
+mv app/requirements.txt .
+
+4. Build the Docker Image This tells Docker to read your Dockerfile, install Python, and set up your app.
+
+docker build -t finance-app .
+
+This step needs to be success
+
+5. Run the Container This starts your app in the background (-d) and maps the ports (-p).
+
+docker run -d -p 5000:5000 finance-app
+
+6. Verify it is Running
+
+docker ps
+
+Go to your browser on your laptop and visit:
+http://34.201.47.69:5000
+
+(You should see a container ID and "0.0.0.0:5000->5000/tcp" under PORTS).
+Remember we have defined port as 5000 earlier as well in Dockerfile, main.tf
+
 

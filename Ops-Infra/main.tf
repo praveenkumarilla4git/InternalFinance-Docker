@@ -1,5 +1,7 @@
 provider "aws" {
   region = var.aws_region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
 }
 
 # --- Security Group ---
@@ -33,8 +35,8 @@ resource "aws_security_group" "finance_docker_sg" {
 
 # --- EC2 Instance ---
 resource "aws_instance" "finance_server" {
-  ami           = "ami-051f7e7f6c2f40dc1" # Amazon Linux 2023 (US-East-1)
-  instance_type = "t2.micro"
+  ami           = "ami-068c0051b15cdb816" # Amazon Linux 2023 (US-East-1)
+  instance_type = "t3.micro"
   key_name      = var.key_name
   security_groups = [aws_security_group.finance_docker_sg.name]
 
