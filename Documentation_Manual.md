@@ -247,3 +247,17 @@ resource "aws_instance" "finance_server" {
 
 Phase 3: Push to GitHub
 Important: Create a NEW repository on GitHub named InternalFinance-Docker before running this.
+Make sure we include the .gitignore file properly
+*.pem
+Ops-Infra/.terraform/
+*.tfstate
+finance.db
+Ops-Infra\batch3.pem
+
+Now we need to do common steps:
+git init
+git add .
+git branch -m main
+git add remote add origin https://github.com/praveenkumarilla4git/InternalFinance-Docker.git
+git push -u origin main
+
